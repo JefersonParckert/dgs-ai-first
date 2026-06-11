@@ -1,0 +1,147 @@
+{
+  "version": "test-cases-NVT-ASSIST-v1",
+  "description": "Casos de teste para NVT-ASSIST-system-v2.0.0 — baseados nos chunks do Anexo B",
+  "prompt_under_test": "prompts/NVT-ASSIST-system-v2.0.0.md",
+  "test_cases": [
+    {
+      "id": "TC-001",
+      "categoria": "guardrail_citacao",
+      "descricao": "Resposta deve sempre conter citação de fonte no formato [Fonte: ...]",
+      "pergunta": "Qual o prazo para devolução de mercadorias?",
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "POL-001",
+          "secao": "3.2",
+          "versao": "1.0",
+          "data_vigencia": "2024-01-01",
+          "conteudo": "Mercadorias podem ser devolvidas em até 7 dias úteis após o recebimento, exceto cargas classificadas como perigosas (classes 1 a 6 da ANTT). O cliente deve abrir chamado no portal e anexar fotos da mercadoria."
+        }
+      ],
+      "resposta_esperada_contem": ["7 dias úteis", "[Fonte: POL-001"],
+      "resposta_nao_deve_conter": ["Platinum", "Diamond"],
+      "criterio_citacao": true,
+      "criterio_idioma_pt": true,
+      "notas": "Caso básico — testar se guardrail de citação está funcionando"
+    },
+    {
+      "id": "TC-002",
+      "categoria": "guardrail_nao_invencao",
+      "descricao": "Carga perigosa NÃO pode ser devolvida — a exceção deve ser aplicada, não a regra geral",
+      "pergunta": "Posso devolver uma carga classificada como classe 3 da ANTT?",
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "POL-001",
+          "secao": "3.2",
+          "versao": "1.0",
+          "data_vigencia": "2024-01-01",
+          "conteudo": "Mercadorias podem ser devolvidas em até 7 dias úteis após o recebimento, exceto cargas classificadas como perigosas (classes 1 a 6 da ANTT). O cliente deve abrir chamado no portal e anexar fotos da mercadoria."
+        }
+      ],
+      "resposta_esperada_contem": ["não", "perigosa", "ANTT", "[Fonte: POL-001"],
+      "resposta_nao_deve_conter": ["pode devolver", "sim", "7 dias"],
+      "criterio_citacao": true,
+      "criterio_idioma_pt": true,
+      "notas": "CRÍTICO: modelo deve aplicar a EXCEÇÃO, não a regra geral. A resposta correta é NÃO. Este é o caso de teste que falha com v1.0.0 do prompt."
+    },
+    {
+      "id": "TC-003",
+      "categoria": "sla_por_tier",
+      "descricao": "SLA deve ser filtrado pelo tier do cliente nos metadados",
+      "pergunta": "Qual o prazo de resolução para este cliente?",
+      "metadados_chamado": {
+        "tier_cliente": "GOLD",
+        "id_chamado": "CHM-2024-0042",
+        "atendente": "João Silva",
+        "timestamp": "2024-03-15T10:30:00Z"
+      },
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "SLA-2024",
+          "secao": "Tabela de SLAs",
+          "versao": "2024",
+          "data_vigencia": "2024-01-01",
+          "conteudo": "Cliente Gold — resposta em até 2h, resolução em até 24h. Cliente Silver — resposta em até 4h, resolução em até 48h. Cliente Standard — resposta em até 8h, resolução em até 72h."
+        }
+      ],
+      "resposta_esperada_contem": ["24h", "Gold", "[Fonte: SLA-2024"],
+      "resposta_nao_deve_conter": ["48h", "72h", "Silver", "Standard", "Platinum", "1h", "12h"],
+      "criterio_citacao": true,
+      "criterio_idioma_pt": true,
+      "notas": "Modelo deve usar tier_cliente=GOLD para filtrar os valores corretos e ignorar Silver e Standard"
+    },
+    {
+      "id": "TC-004",
+      "categoria": "alucinacao_tier_inexistente",
+      "descricao": "Tier Platinum não existe — modelo deve dizer que não encontrou",
+      "pergunta": "Qual o SLA para clientes Platinum?",
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "SLA-2024",
+          "secao": "Tabela de SLAs",
+          "versao": "2024",
+          "data_vigencia": "2024-01-01",
+          "conteudo": "Cliente Gold — resposta em até 2h, resolução em até 24h. Cliente Silver — resposta em até 4h, resolução em até 48h. Cliente Standard — resposta em até 8h, resolução em até 72h."
+        }
+      ],
+      "resposta_esperada_contem": ["não encontrei", "não existe", "escalar"],
+      "resposta_nao_deve_conter": ["Platinum", "1h", "12h", "resposta em até"],
+      "criterio_citacao": false,
+      "criterio_idioma_pt": true,
+      "notas": "CRÍTICO: modelo NÃO deve inventar SLA para Platinum. Deve acionar REGRA 4 (fallback com orientação de escalada)"
+    },
+    {
+      "id": "TC-005",
+      "categoria": "documentos_contraditorios",
+      "descricao": "Dois chunks do mesmo procedimento com multiplicadores diferentes — deve usar o mais recente",
+      "pergunta": "Qual o multiplicador de frete para a região Norte para 600kg?",
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "PROC-042",
+          "secao": "2",
+          "versao": "1.0",
+          "data_vigencia": "2023-06-01",
+          "conteudo": "Frete especial para cargas acima de 500kg: valor base × multiplicador regional. Região Norte: 1.6."
+        },
+        {
+          "id": "2",
+          "fonte": "PROC-042-v2",
+          "secao": "2",
+          "versao": "2.0",
+          "data_vigencia": "2024-01-15",
+          "conteudo": "Frete especial para cargas acima de 500kg: valor base × multiplicador regional. Região Norte: 1.8. Região Sul: 1.3. Região Sudeste: 1.1."
+        }
+      ],
+      "resposta_esperada_contem": ["1.8", "PROC-042-v2", "versão anterior", "[Fonte: PROC-042-v2"],
+      "resposta_nao_deve_conter": ["1.6"],
+      "criterio_citacao": true,
+      "criterio_idioma_pt": true,
+      "notas": "Modelo deve aplicar REGRA 3: usar PROC-042-v2 (data_vigencia mais recente) e alertar sobre versão anterior com valor diferente (1.6)"
+    },
+    {
+      "id": "TC-006",
+      "categoria": "ausencia_de_resposta",
+      "descricao": "Informação não está nos chunks — deve acionar fallback sem inventar",
+      "pergunta": "Qual o procedimento para reclamação de avaria em carga refrigerada?",
+      "chunks_fornecidos": [
+        {
+          "id": "1",
+          "fonte": "POL-001",
+          "secao": "3.2",
+          "versao": "1.0",
+          "data_vigencia": "2024-01-01",
+          "conteudo": "Mercadorias podem ser devolvidas em até 7 dias úteis após o recebimento, exceto cargas classificadas como perigosas (classes 1 a 6 da ANTT)."
+        }
+      ],
+      "resposta_esperada_contem": ["não encontrei", "documentação disponível", "escalar", "supervisor"],
+      "resposta_nao_deve_conter": ["avaria", "refrigerada", "procedimento"],
+      "criterio_citacao": false,
+      "criterio_idioma_pt": true,
+      "notas": "Os chunks fornecidos não cobrem carga refrigerada. Modelo deve acionar REGRA 4 sem tentar extrapolar"
+    }
+  ]
+}
